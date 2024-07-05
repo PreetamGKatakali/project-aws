@@ -1,0 +1,48 @@
+1. Initialize Database
+Method: GET
+URL: http://localhost:3000/api/transactions/initialize
+Description: Fetches data from an external source and initializes the database with seed data.
+2. List All Transactions
+Method: GET
+URL: http://localhost:3000/api/transactions
+Params:
+month: String (e.g., "January")
+page: Number
+perPage: Number
+search: String
+Description: Retrieves transactions with optional search, pagination, and month filtering.
+3. Get Statistics
+Method: GET
+URL: http://localhost:3000/api/transactions/statistics
+Params:
+month: String (e.g., "January")
+Description: Returns statistical data like total sales, and counts of sold and unsold items for a selected month.
+4. Bar Chart Data
+Method: GET
+URL: http://localhost:3000/api/transactions/bar-chart
+Params:
+month: String (e.g., "January")
+Description: Provides data for bar chart visualizations, showing product counts across price ranges for a specific month.
+5. Pie Chart Data
+Method: GET
+URL: http://localhost:3000/api/transactions/pie-chart
+Params:
+month: String (e.g., "January")
+Description: Provides data for pie chart visualizations, showing counts of items per category for a specific month.
+6. Combined Data
+Method: GET
+URL: http://localhost:3000/api/transactions/combined-data
+Params:
+month: String (e.g., "January")
+page: Number
+perPage: Number
+search: String
+Description: Combines data from listing transactions, bar chart, and pie chart endpoints into a single response.
+Save Each Request: After setting up each request, click "Save" to add them to your collection.
+
+Export the Collection (optional):
+
+Right-click the collection in the sidebar.
+Select "Export".
+Choose the format version (e.g., v2.1).
+Save the file to your desired location.
