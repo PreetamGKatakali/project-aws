@@ -1,126 +1,138 @@
 const Transaction = require('../models/transactionModel');
 
-
-const getDateRangeForMonth = (monthName) => {
-    const year = new Date().getFullYear();
-    const month = new Date(`${monthName} 1, ${year}`).getMonth(); // Convert month name to month number
-    const startDate = new Date(Date.UTC(year, month, 1)); // UTC start date
-    const endDate = new Date(Date.UTC(year, month + 1, 1)); // UTC start date of the next month
-    console.log(`Start Date: ${startDate.toISOString()}, End Date: ${endDate.toISOString()}`); // Check the start and end dates
-    return { startDate, endDate };
-  };
-
-// Helper function to format month for regex pattern
-const formatMonthForRegex = async(month) => {
-  const monthIndex = new Date(Date.parse(month + " 1, 2000")).getMonth();
-  const monthString = (monthIndex + 1 < 10 ? '0' + (monthIndex + 1) : (monthIndex + 1)).toString();
-
-  const regex = new RegExp(`-${monthString}-`, 'g');
-
-  return regex;
-};
-
 // Fetching transactions with filtering, searching, and pagination
-const fetchTransactions = async ({ month, page, perPage, search }) => {
+const fetchTransactions = async ({page, perPage, search }) => {
   const query = {};
+
   if (search) {
-    query.$or = [
+    const searchConditions = [
       { title: { $regex: search, $options: 'i' } },
-      { description: { $regex: search, $options: 'i' } },
-      { price: parseFloat(search) || null }
+      { description: { $regex: search, $options: 'i' } }
     ];
-  }
-  if (month) {
-    const monthRegex = await formatMonthForRegex(month);
-    query.dateOfSale = { $regex: monthRegex };
+
+    // Check if the search term is a valid number
+    const searchNumber = parseFloat(search);
+    if (!isNaN(searchNumber)) {
+      searchConditions.push({ price: searchNumber });
+    }
+
+    query.$or = searchConditions;
   }
 
   const transactions = await Transaction.find(query)
     .skip((page - 1) * perPage)
-    .limit(perPage)
-    .exec();
+    .limit(perPage);
 
-  const total = await Transaction.countDocuments(query);
+  const totalTransactions = await Transaction.countDocuments(query);
+
   return {
-    transactions,
-    total,
-    pages: Math.ceil(total / perPage),
-    currentPage: page
+    total: totalTransactions,
+    page: page,
+    perPage: perPage,
+    transactions: transactions
   };
 };
 
-// Fetching bar chart data
-// const fetchBarChartData = async (month) => {
-//   const boundaries = [0, 101, 201, 301, 401, 501, 601, 701, 801, 901];
-//   const monthRegex = await formatMonthForRegex(month);
-//   const barChartData = await Transaction.aggregate([
-//     {
-//       $match: {
-//         dateOfSale: { $regex: monthRegex }
-//       }
-//     },
-//     {
-//       $bucket: {
-//         groupBy: "$price",
-//         boundaries: boundaries,
-//         default: "901-above",
-//         output: {
-//           count: { $sum: 1 }
-//         }
-//       }
-//     }
-//   ]);
+//Fecthing the statistics
+const fetchStatistics = async (monthName) => {
+  const monthIndex = new Date(Date.parse(monthName + " 1, 2022")).getMonth() + 1; // Get the month index (1-based)
+  console.log(`Fetching statistics for month: ${monthName}`);
+  console.log(`Month index: ${monthIndex}`);
 
-//   return barChartData.map(item => ({
-//     range: item._id === "901-above" ? "901 and above" : `${item._id} - ${item._id + 99}`,
-//     count: item.count
-//   }));
-// };
+  const statistics = await Transaction.aggregate([
+    {
+      $project: {
+        price: 1,
+        sold: 1,
+        month: { $month: "$dateOfSale" }
+      }
+    },
+    {
+      $match: {
+        month: monthIndex
+      }
+    },
+    {
+      $group: {
+        _id: null,
+        totalSaleAmount: { $sum: "$price" },
+        totalSoldItems: { $sum: { $cond: [ { $eq: ["$sold", true] }, 1, 0 ] } },
+        totalNotSoldItems: { $sum: { $cond: [ { $eq: ["$sold", false] }, 1, 0 ] } }
+      }
+    }
+  ]);
+
+  if (statistics.length === 0) {
+    console.log("No data found for the specified month.");
+    return {
+      totalSaleAmount: 0,
+      totalSoldItems: 0,
+      totalNotSoldItems: 0
+    };
+  } else {
+    console.log("Statistics data:", statistics[0]);
+    return statistics[0];
+  }
+};
+
 // Fetching bar chart data
 const fetchBarChartData = async (monthName) => {
-    const { startDate, endDate } = getDateRangeForMonth(monthName);
-    const boundaries = [0, 101, 201, 301, 401, 501, 601, 701, 801, 901];
-  
-    const barChartData = await Transaction.aggregate([
-      {
-        $match: {
-          dateOfSale: {
-            $gte: startDate,
-            $lt: endDate
-          }
-        }
-      },
-      {
-        $bucket: {
-          groupBy: "$price",
-          boundaries: boundaries,
-          default: "901-above",
-          output: {
-            count: { $sum: 1 }
-          }
+  const monthIndex = new Date(Date.parse(monthName + " 1, 2022")).getMonth() + 1; // Get the month index (1-based)
+
+  const boundaries = [0, 101, 201, 301, 401, 501, 601, 701, 801, 901];
+
+  const barChartData = await Transaction.aggregate([
+    {
+      $project: {
+        price: 1,
+        month: { $month: "$dateOfSale" }
+      }
+    },
+    {
+      $match: {
+        month: monthIndex
+      }
+    },
+    {
+      $bucket: {
+        groupBy: "$price",
+        boundaries: boundaries,
+        default: "901-above",
+        output: {
+          count: { $sum: 1 }
         }
       }
-    ]);
-  
-    if (barChartData.length === 0) {
-      console.log("No data found for the specified month.");
-    } else {
-      console.log("Bar chart data:", barChartData);
     }
-  
-    return barChartData.map(item => ({
-      range: item._id === "901-above" ? "901 and above" : `${item._id} - ${item._id + 99}`,
-      count: item.count
-    }));
+  ]);
+
+  if (barChartData.length === 0) {
+    console.log("No data found for the specified month.");
+  } else {
+    console.log("Bar chart data:", barChartData);
+  }
+
+  return barChartData.map(item => ({
+    range: item._id === "901-above" ? "901 and above" : `${item._id} - ${item._id + 99}`,
+    count: item.count
+  }));
   };
 
 // Fetching pie chart data
 const fetchPieChartData = async (month) => {
-  const monthRegex = await formatMonthForRegex(month);
+  const monthIndex = new Date(Date.parse(month + " 1, 2022")).getMonth() + 1; // Get the month index (1-based)
+  console.log(`Fetching pie chart data for month: ${month}`);
+  console.log(`Month index: ${monthIndex}`);
+
   const pieChartData = await Transaction.aggregate([
     {
+      $project: {
+        category: 1,
+        month: { $month: "$dateOfSale" }
+      }
+    },
+    {
       $match: {
-        dateOfSale: { $regex: monthRegex }
+        month: monthIndex
       }
     },
     {
@@ -130,6 +142,12 @@ const fetchPieChartData = async (month) => {
       }
     }
   ]);
+
+  if (pieChartData.length === 0) {
+    console.log("No data found for the specified month.");
+  } else {
+    console.log("Pie chart data:", pieChartData);
+  }
 
   return pieChartData.map(cat => ({
     category: cat._id,
@@ -156,5 +174,6 @@ module.exports = {
   fetchTransactions,
   fetchBarChartData,
   fetchPieChartData,
-  fetchCombinedData
+  fetchCombinedData,
+  fetchStatistics,
 };

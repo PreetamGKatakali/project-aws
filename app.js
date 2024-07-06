@@ -2,11 +2,14 @@ const express = require('express');
 const mongoose = require('mongoose');
 const bodyParser = require('body-parser');
 const transactionRoutes = require('./routes/transactions');
+const dotenv = require('dotenv');
+
+dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-mongoose.connect('mongodb://localhost:27017/products');
+mongoose.connect(`${process.env.MONGO_URI}${process.env.DATABASE_NAME}`);
 
 mongoose.connection.on('connected', () => {
   console.log('Connected to MongoDB successfully');

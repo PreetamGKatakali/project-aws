@@ -1,5 +1,5 @@
 const mongoose = require('mongoose');
-
+//model for the Transaction
 const transactionSchema = new mongoose.Schema({
   id: Number,
   title: String,

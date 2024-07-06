@@ -5,7 +5,8 @@ const {
   fetchTransactions,
   fetchBarChartData,
   fetchPieChartData,
-  fetchCombinedData
+  fetchCombinedData,
+  fetchStatistics
 } = require('../handlers/transactionHandlers');
 const Transaction = require('../models/transactionModel');
 
@@ -24,9 +25,12 @@ router.get('/initialize', async (req, res) => {
 
 // Route to list all transactions with pagination and search
 router.get('/', async (req, res) => {
-  const { month, page = 1, perPage = 10, search = '' } = req.query;
+  const search = req.query.search || '';
+  const page = parseInt(req.query.page) || 1;
+  const perPage = parseInt(req.query.perPage) || 10;
+  console.log(search,page,perPage);
   try {
-    const result = await fetchTransactions({ month, page, perPage, search });
+    const result = await fetchTransactions({page, perPage, search });
     res.status(200).json(result);
   } catch (error) {
     res.status(500).send(error.message);
@@ -36,11 +40,11 @@ router.get('/', async (req, res) => {
 // Route to get statistics
 router.get('/statistics', async (req, res) => {
   const { month } = req.query;
-  if (!month) {
+  if (!month) { //returning error when the user not entered the month
     return res.status(400).json({ error: "Month parameter is required" });
   }
   try {
-    const stats = await fetchBarChartData(month);
+    const stats = await fetchStatistics(month);
     res.status(200).json(stats);
   } catch (error) {
     res.status(500).send(error.message);
@@ -50,7 +54,7 @@ router.get('/statistics', async (req, res) => {
 // Route to get bar chart data
 router.get('/bar-chart', async (req, res) => {
   const { month } = req.query;
-  if (!month) {
+  if (!month) { //returning error when the user not entered the month
     return res.status(400).json({ error: "Month parameter is required" });
   }
   try {
